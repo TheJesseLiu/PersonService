@@ -8,15 +8,25 @@ router.use(bodyParser.urlencoded({extended: false}));
 var AWS = require("aws-sdk");
 AWS.config.update({region: "us-east-1"});
 var baseURL = process.env.BASE_URL;
-var addressURL = process.env.ADDRESS_URL;
-const querySet = {"first_name":true,"last_name":true,"address_id":true, "startKey_id":true, "limit":true};
+const querySet = {"first_name":true,"last_name":true, "address_url":true, "startKey_id":true, "limit":true};
 
 function addHateoas(item){
 	item["links"] = [
 		{"rel":"self", "href":baseURL+'/'+item.person_id},
+
+		//modi
 		{"rel":"address", "href":baseURL+'/'+item.person_id+"/address"}
 	];
 }
+function createID(email){
+    let hash = 5381;
+    for (i = 0; i < email.length; i++) {
+        let char = email.charCodeAt(i);
+        hash = Math.abs(((hash << 5) + hash) + char); /* hash * 33 + c */
+    }
+    return hash.toString();
+}
+
 function processQuery(query, params){
 	if(query.startKey_id!== undefined){
 		params['ExclusiveStartKey'] = {person_id:query.startKey_id};
@@ -76,7 +86,7 @@ router.get('/person', function(req, res) {
 router.post('/person', function(req, res) {
 	console.log(req.body);
 	let ddb = new AWS.DynamoDB.DocumentClient();
-	let add_id = req.body.person_id;
+	req.body["person_id"] = createID(req.body.email);
 	let params = {
 		TableName : 'PersonTable',
 		Item: req.body,
@@ -86,11 +96,13 @@ router.post('/person', function(req, res) {
 		if (err) {
 			res.status(400);
 			res.send("Person Existed");
+			
 			console.log(err);
 			res.end();
 		}
 		else {
 			res.status(202);
+			res.send(baseURL+'/'+req.body["person_id"]);
 			res.end();
 		}
 	});
@@ -112,7 +124,7 @@ router.get('/person/:p_id/', function(req, res) {
 	    	res.end("400 Bad Request or the id should be a number");
 	    }
 	    else {
-	    	if(data.length!=0){
+	    	if(!isEmpty(data)){
 	    		addHateoas(data.Item);	    		
 	    	}
 	    	res.status(200).send(data);
@@ -121,6 +133,30 @@ router.get('/person/:p_id/', function(req, res) {
 	});
 });
 
+var hasOwnProperty = Object.prototype.hasOwnProperty;
+
+function isEmpty(obj) {
+    // null and undefined are "empty"
+    if (obj == null) return true;
+    // Assume if it has a length property with a non-zero value
+    // that that property is correct.
+    if (obj.length > 0)    return false;
+    if (obj.length === 0)  return true;
+
+    // If it isn't an object at this point
+    // it is empty, but it can't be anything *but* empty
+    // Is it empty?  Depends on your application.
+    if (typeof obj !== "object") return true;
+
+    // Otherwise, does it have any properties of its own?
+    // Note that this doesn't handle
+    // toString and valueOf enumeration bugs in IE < 9
+    for (var key in obj) {
+        if (hasOwnProperty.call(obj, key)) return false;
+    }
+
+    return true;
+}
 
 router.put('/person/:p_id/', function(req, res) {
 	let ddb = new AWS.DynamoDB.DocumentClient();
@@ -130,11 +166,12 @@ router.put('/person/:p_id/', function(req, res) {
         Key:{
             person_id : p_id
         },
-        UpdateExpression: "set first_name =:firstname, last_name =:lastname, address_id =:address_id",
+        UpdateExpression: "set first_name =:firstname, email =:email, last_name =:lastname, address_url =:address_url",
         ExpressionAttributeValues:{
             ":firstname" : req.body.first_name,
             ":lastname" : req.body.last_name,
-            ":address_id" : req.body.address_id
+            ":email" : req.body.email,
+            ":address_url" : req.body.address_url
         }
     };
 	ddb.update(params, function(err, data) {
@@ -192,7 +229,7 @@ router.get('/person/:p_id/address', function (req, res) {
             res.end("400 Bad Request or the person_id should be number");
         } 
         else {
-        	res.status(200).send(addressURL+"/"+data.Item.address_id);
+        	res.status(200).send(data.Item.address_url);
         	res.end();
         }
     });
