@@ -90,19 +90,19 @@ router.post('/person', function(req, res) {
 	let params = {
 		TableName : 'PersonTable',
 		Item: req.body,
-		'ConditionExpression':'attribute_not_exists(person_id)',
+		// 'ConditionExpression':'attribute_not_exists(person_id)',
 	};
 	ddb.put(params, function(err, data) {
 		if (err) {
 			res.status(400);
-			res.send("Person Existed");
+			res.send(JSON.stringify({"error message":"Person Existed"}));
 			
 			console.log(err);
 			res.end();
 		}
 		else {
 			res.status(202);
-			res.send(baseURL+'/'+req.body["person_id"]);
+			res.send(JSON.stringify({"url":baseURL+'/'+req.body["person_id"]}));
 			res.end();
 		}
 	});
@@ -121,7 +121,7 @@ router.get('/person/:p_id/', function(req, res) {
 	    if (err || isNaN(p_id)) {
 	    	console.log(err, err.stack); // an error occurred
 	    	res.status(400);
-	    	res.end("400 Bad Request or the id should be a number");
+	    	res.end(JSON.stringify({"error message":"400 Bad Request or the id should be a number"}));
 	    }
 	    else {
 	    	if(!isEmpty(data)){
@@ -166,24 +166,23 @@ router.put('/person/:p_id/', function(req, res) {
         Key:{
             person_id : p_id
         },
-        UpdateExpression: "set first_name =:firstname, email =:email, last_name =:lastname, address_url =:address_url",
+        UpdateExpression: "set first_name =:firstname, last_name =:lastname, address_url =:address_url",
         ExpressionAttributeValues:{
             ":firstname" : req.body.first_name,
             ":lastname" : req.body.last_name,
-            ":email" : req.body.email,
             ":address_url" : req.body.address_url
         }
     };
 	ddb.update(params, function(err, data) {
 	    if (err) {
-	        console.error("Unable to update item. Error JSON:", JSON.stringify(err, null, 2));
+	        res.end(JSON.stringify(err, null, 2));
 	    	res.status(400);
-	    	res.end("The person_id: "+p_id+" is not in the database.");
+	    	// res.end(JSON.stringify({"error message":"The person_id: "+p_id+" is not in the database."}));
 	    }
 	    else {
 	        console.log("UpdateItem succeeded:", JSON.stringify(data, null, 2));
 			res.status(202);
-	        res.end("The person_id: "+p_id+" has been updated.");
+	        res.end(JSON.stringify({"error message":"The person_id: "+p_id+" has been updated."}));
 	    }
 	});
 
@@ -203,7 +202,7 @@ router.delete('/person/:p_id/', function(req, res) {
 	    if (err || isNaN(p_id)) {
 	    	console.log(err);
 	    	res.status(400);
-	    	res.end("400 Bad Request or the person_id should be number");
+	    	res.end(JSON.stringify({"error message":"400 Bad Request or the person_id should be number"}));
 	    }
 	    else {
 	    	res.status(202);
@@ -226,10 +225,10 @@ router.get('/person/:p_id/address', function (req, res) {
         if (err) {
             console.error("Unable to read item. Error JSON:", JSON.stringify(err, null, 2));
             res.status(400);
-            res.end("400 Bad Request or the person_id should be number");
+            res.end(JSON.stringify({"error message":"400 Bad Request or the person_id should be number"}));
         } 
         else {
-        	res.status(200).send(data.Item.address_url);
+        	res.status(200).send(JSON.stringify({"url":data.Item.address_url}));
         	res.end();
         }
     });
