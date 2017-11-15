@@ -57,7 +57,8 @@ router.get('/person', function(req, res) {
         TableName: "PersonTable",
         Limit: 20
     };
-	processQuery(req.query, params);
+    let queryCopy = JSON.parse(JSON.stringify(req.query));
+    processQuery(queryCopy, params);    
  
 
 	if(req.query.startKey_id!== undefined){
@@ -72,7 +73,13 @@ router.get('/person', function(req, res) {
 	    		addHateoas(data.Items[i]);	
 	    	}
 		    if(data.LastEvaluatedKey!==undefined){
-		    	q = req.originalUrl.split("?")[1]===undefined? "":req.originalUrl.split("?")[1]+"&";
+                let q = "";
+                delete req.query["startKey_id"]; 
+                for (var key in req.query) {
+                    if (req.query.hasOwnProperty(key)) {
+                        q=q+key+"="+req.query[key]+"&";
+                    }
+                }
 		    	data["links"] = [
 					{"rel":"next", "href":baseURL+"?"+q+"startKey_id="+data.LastEvaluatedKey.person_id}
 		    	]
